@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracking Bus — Admin Panel</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="admin-style.css">
+  <style>
+    body { background:#F0F2F7; font-family:'Plus Jakarta Sans',sans-serif; }
+
+    /* ── Header ── */
+    .trk-header {
+      background: linear-gradient(135deg,#1D53E8 0%,#1440B8 100%);
+      height: 64px; padding: 0 24px;
+      display: flex; align-items: center; gap: 14px;
+      box-shadow: 0 4px 20px rgba(29,83,232,.35);
+      position: sticky; top:0; z-index:999;
+    }
+    .back-btn {
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+      color:#fff; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;
+      text-decoration:none; display:flex; align-items:center; gap:6px; transition:all .2s; white-space:nowrap;
+    }
+    .back-btn:hover { background:rgba(255,255,255,.28); color:#fff; }
+    .hdr-title { font-size:17px; font-weight:800; color:#fff; flex:1; }
+    .live-badge {
+      display:flex; align-items:center; gap:6px;
+      background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25);
+      border-radius:20px; padding:5px 14px; font-size:12px; font-weight:700; color:#fff; white-space:nowrap;
+    }
+    .live-dot {
+      width:8px; height:8px; border-radius:50%; background:#4ADE80;
+      animation: lp 1.2s infinite;
+    }
+    @keyframes lp { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.6)} }
+    .hdr-user {
+      display:flex; align-items:center; gap:8px; padding:4px 12px;
+      background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:20px;
+    }
+    .hdr-user .nm  { font-size:12px; font-weight:700; color:#fff; line-height:1.2; }
+    .hdr-user .rl  { font-size:10px; color:rgba(255,255,255,.7); }
+
+    /* ── Body wrap ── */
+    .body-wrap { padding:20px; display:flex; flex-direction:column; gap:16px; max-width:1600px; margin:auto; }
+
+    /* ── Bus Selector ── */
+    .bus-sel-card { background:#fff; border-radius:16px; border:1px solid #E2E8F0; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden; }
+    .bus-sel-hdr  { padding:13px 20px; border-bottom:1px solid #F1F5F9; background:#F8FAFC; font-size:13.5px; font-weight:800; color:#0F172A; display:flex; align-items:center; gap:8px; }
+    .bus-scroll   { display:flex; gap:10px; overflow-x:auto; padding:14px 16px; }
+    .bus-scroll::-webkit-scrollbar { height:4px; }
+    .bus-scroll::-webkit-scrollbar-thumb { background:#E2E8F0; border-radius:2px; }
+    .bus-chip {
+      flex-shrink:0; display:flex; align-items:center; gap:10px;
+      padding:10px 16px; border-radius:12px; cursor:pointer;
+      border:2px solid transparent; transition:all .2s; min-width:190px; background:#F8FAFC;
+    }
+    .bus-chip:hover  { border-color:#DBEAFE; background:#EEF2FD; }
+    .bus-chip.active { border-color:#1D53E8; background:#EEF2FD; }
+    .chip-ico { width:42px; height:42px; border-radius:10px; display:grid; place-items:center; font-size:20px; flex-shrink:0; }
+    .chip-ico.g { background:#16A34A; } .chip-ico.a { background:#D97706; } .chip-ico.gr { background:#94A3B8; }
+    .chip-name   { font-size:13px; font-weight:700; color:#0F172A; }
+    .chip-driver { font-size:11px; color:#64748B; }
+    .chip-badge  { font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; display:inline-block; margin-top:3px; }
+    .chip-badge.aktif   { background:#DCFCE7; color:#16A34A; }
+    .chip-badge.standby { background:#FEF3C7; color:#D97706; }
+
+    /* ── Tab Switcher ── */
+    .tab-sw { display:flex; gap:0; background:#fff; border:1px solid #E2E8F0; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+    .tab-sw-btn {
+      flex:1; padding:12px 20px; background:#fff; border:none; cursor:pointer;
+      font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; font-weight:700; color:#64748B;
+      transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px;
+      border-right:1px solid #E2E8F0;
+    }
+    .tab-sw-btn:last-child { border-right:none; }
+    .tab-sw-btn.active { background:#1D53E8; color:#fff; }
+    .tab-sw-btn:not(.active):hover { background:#F8FAFC; color:#334155; }
+
+    /* ── Main grid ── */
+    .main-grid { display:grid; grid-template-columns:1fr 330px; gap:16px; align-items:start; }
+    @media(max-width:1200px){ .main-grid{ grid-template-columns:1fr 290px; } }
+    @media(max-width:992px) { .main-grid{ grid-template-columns:1fr; } }
+
+    /* ── Panel shell ── */
+    .panel { background:#fff; border-radius:16px; border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,.06); overflow:hidden; }
+    .panel-hdr {
+      padding:14px 20px; border-bottom:1px solid #F1F5F9; background:#F8FAFC;
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .panel-title { font-size:14px; font-weight:800; color:#0F172A; display:flex; align-items:center; gap:8px; }
+
+    /* tab content */
+    .tc { display:none; } .tc.active { display:block; }
+
+    /* ── Graph MNN ── */
+    .graph-legend { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .leg-item { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#64748B; }
+    .l-dot  { width:10px; height:10px; border-radius:50%; }
+    .l-line { width:20px; height:3px; border-radius:2px; }
+    .canvas-wrap { padding:10px; }
+    #mnnCanvas { width:100%; display:block; border-radius:10px; background:#F8FAFC; border:1.5px solid #E2E8F0; }
+
+    .anim-bar { padding:12px 16px; border-top:1px solid #F1F5F9; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .btn-anim {
+      padding:9px 20px; background:#1D53E8; color:#fff; border:none; border-radius:10px;
+      font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:7px;
+      transition:all .2s; font-family:'Plus Jakarta Sans',sans-serif;
+    }
+    .btn-anim:hover { background:#1440B8; }
+    .btn-anim.running { background:#16A34A; }
+    .btn-rst {
+      padding:9px 16px; background:#F1F5F9; color:#64748B; border:none; border-radius:10px;
+      font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;
+      transition:all .2s; font-family:'Plus Jakarta Sans',sans-serif;
+    }
+    .btn-rst:hover { background:#E2E8F0; color:#334155; }
+    .spd-wrap { display:flex; align-items:center; gap:8px; margin-left:auto; }
+    .spd-wrap label { font-size:12px; font-weight:600; color:#64748B; white-space:nowrap; }
+    .spd-wrap input  { accent-color:#1D53E8; width:90px; }
+    #speedLabel { font-size:12px; font-weight:700; color:#1D53E8; min-width:24px; }
+
+    /* ── Map Tab ── */
+    #mapContainer { height:520px; }
+    .leaflet-popup-content-wrapper { border-radius:12px!important; font-family:'Plus Jakarta Sans',sans-serif!important; box-shadow:0 8px 24px rgba(0,0,0,.15)!important; }
+    .pop-title { font-size:13px; font-weight:800; color:#0F172A; margin-bottom:3px; }
+    .pop-sub   { font-size:11px; color:#64748B; }
+    .pop-badge { display:inline-block; padding:2px 8px; border-radius:8px; font-size:10.5px; font-weight:700; margin-top:4px; }
+    .pop-badge.pool   { background:#FEF3C7; color:#D97706; }
+    .pop-badge.school { background:#DBEAFE; color:#1D53E8; }
+    .pop-badge.bus    { background:#DCFCE7; color:#16A34A; }
+
+    /* poll bar */
+    .poll-bar  { height:3px; background:#E2E8F0; overflow:hidden; }
+    .poll-fill { height:100%; background:#1D53E8; border-radius:2px; animation:ps 3s linear infinite; }
+    @keyframes ps { 0%{width:0%} 100%{width:100%} }
+
+    /* map legend inside map */
+    .map-leg {
+      position:absolute; bottom:20px; left:20px; z-index:800;
+      background:rgba(255,255,255,.95); border-radius:12px; padding:12px 14px;
+      box-shadow:0 4px 16px rgba(0,0,0,.12); font-size:11.5px; pointer-events:none;
+    }
+    .map-leg-ttl { font-weight:800; font-size:12px; margin-bottom:8px; color:#0F172A; }
+    .ml-item { display:flex; align-items:center; gap:7px; margin-bottom:5px; color:#334155; font-weight:600; }
+    .ml-item:last-child { margin-bottom:0; }
+    .ml-dot  { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+    .ml-line { width:20px; height:3px; border-radius:2px; flex-shrink:0; }
+
+    /* ── Right col cards ── */
+    .right-col { display:flex; flex-direction:column; gap:12px; }
+    .info-card { background:#fff; border-radius:16px; border:1px solid #E2E8F0; box-shadow:0 1px 3px rgba(0,0,0,.05); overflow:hidden; }
+    .ic-hdr { padding:12px 16px; background:#F8FAFC; border-bottom:1px solid #F1F5F9; font-size:13px; font-weight:800; color:#0F172A; display:flex; align-items:center; gap:8px; }
+    .irow   { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid #F1F5F9; font-size:12.5px; }
+    .irow:last-child { border-bottom:none; }
+    .ilbl   { color:#64748B; font-weight:600; }
+    .ival   { font-weight:700; color:#0F172A; text-align:right; max-width:160px; }
+    .ival.b { color:#1D53E8; } .ival.g { color:#16A34A; } .ival.p { color:#7C3AED; } .ival.a { color:#D97706; }
+
+    /* Relasi grid */
+    .rel-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px; }
+    .rel-item { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:2px; }
+    .rel-lbl  { font-size:10px; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:.4px; }
+    .rel-val  { font-size:13px; font-weight:800; color:#0F172A; }
+    .rel-sub  { font-size:10.5px; color:#64748B; }
+    .sdot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; }
+    .sdot.g { background:#4ADE80; box-shadow:0 0 6px #4ADE80; }
+    .sdot.a { background:#FCD34D; }
+    .sdot.gr { background:#CBD5E1; }
+
+    /* Steps */
+    .steps-sc { max-height:260px; overflow-y:auto; }
+    .steps-sc::-webkit-scrollbar { width:4px; }
+    .steps-sc::-webkit-scrollbar-thumb { background:#E2E8F0; border-radius:2px; }
+    .step-row { display:flex; align-items:flex-start; gap:10px; padding:9px 16px; border-bottom:1px solid #F1F5F9; font-size:11.5px; }
+    .step-row:last-child { border-bottom:none; }
+    .step-num { width:22px; height:22px; border-radius:50%; background:#EEF2FD; color:#1D53E8; font-size:10px; font-weight:800; display:grid; place-items:center; flex-shrink:0; }
+    .step-rt  { font-weight:700; color:#0F172A; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+    .step-d   { color:#1D53E8; font-weight:800; margin-left:auto; padding-left:8px; white-space:nowrap; }
+    .step-note{ font-size:10.5px; color:#64748B; margin-top:2px; line-height:1.4; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="trk-header">
+  <a href="admin-dashboard.html" class="back-btn"><i class="bi bi-arrow-left"></i> Dashboard</a>
+  <div class="hdr-title"><i class="bi bi-broadcast me-2"></i>Tracking Bus Real-Time</div>
+  <div class="live-badge"><span class="live-dot"></span> LIVE</div>
+  <div class="hdr-user d-none d-md-flex">
+    <i class="bi bi-person-fill text-white"></i>
+    <div><div class="nm">Admin</div><div class="rl">Super Admin</div></div>
+  </div>
+</header>
+
+<div class="body-wrap">
+
+  <!-- BUS SELECTOR -->
+  <div class="bus-sel-card">
+    <div class="bus-sel-hdr">
+      <i class="bi bi-bus-front-fill text-primary"></i>
+      Pilih Bus yang Dipantau
+      <span class="ms-auto" style="font-size:11px;font-weight:600;color:#94A3B8;">Update tiap 3 detik</span>
+    </div>
+    <div class="bus-scroll" id="busScroll"><!-- JS --></div>
+  </div>
+
+  <!-- TAB SWITCHER -->
+  <div class="tab-sw">
+    <button class="tab-sw-btn active" id="tabBtnGraph" onclick="switchTab('graph')">
+      <i class="bi bi-diagram-3-fill"></i> Graf MNN (Algoritma)
+    </button>
+    <button class="tab-sw-btn" id="tabBtnMap" onclick="switchTab('map')">
+      <i class="bi bi-map-fill"></i> Peta Real-Time (Tracking GPS)
+    </button>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- KOLOM KIRI -->
+    <div>
+
+      <!-- TAB 1 : GRAPH MNN -->
+      <div class="tc active panel" id="tabGraph">
+        <div class="panel-hdr">
+          <div class="panel-title">
+            <i class="bi bi-diagram-3-fill text-primary"></i>
+            Graf TSP — Modified Nearest Neighbor (MNN)
+          </div>
+          <div class="graph-legend">
+            <div class="leg-item"><span class="l-dot" style="background:#F59E0B;"></span>Bus Pool</div>
+            <div class="leg-item"><span class="l-dot" style="background:#2563EB;"></span>Sekolah</div>
+            <div class="leg-item"><span class="l-line" style="background:#CBD5E1;"></span>Semua Edge</div>
+            <div class="leg-item"><span class="l-line" style="background:#2563EB;"></span>Rute Optimal</div>
+            <div class="leg-item"><span class="l-line" style="background:#7C3AED;"></span>Jalur Balik</div>
+            <div class="leg-item"><span class="l-dot" style="background:#EF4444;"></span>Bus</div>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="mnnCanvas"></canvas>
+        </div>
+        <div class="anim-bar">
+          <button class="btn-anim" id="animBtn" onclick="toggleAnim()">
+            <i class="bi bi-play-fill" id="animIcon"></i>
+            <span id="animLabel">Mulai Animasi</span>
+          </button>
+          <button class="btn-rst" onclick="resetAnim()">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+          </button>
+          <div class="spd-wrap">
+            <label>Kecepatan:</label>
+            <input type="range" min="1" max="5" value="3" id="speedRange" oninput="setSpeed(this.value)">
+            <span id="speedLabel">3×</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2 : MAP REAL-TIME -->
+      <div class="tc panel" id="tabMap" style="position:relative;">
+        <div class="panel-hdr">
+          <div class="panel-title">
+            <i class="bi bi-map-fill text-primary"></i>
+            Peta Real-Time — GPS Tracking Bus
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#64748B;font-weight:600;">
+            <span class="live-dot" style="display:inline-block;"></span>Polling 3 detik
+          </div>
+        </div>
+        <div class="poll-bar"><div class="poll-fill"></div></div>
+        <div id="mapContainer"></div>
+        <div class="map-leg">
+          <div class="map-leg-ttl">Keterangan</div>
+          <div class="ml-item"><span class="ml-dot" style="background:#F59E0B;border:2px solid #fff;box-shadow:0 0 0 1.5px #F59E0B;"></span>Bus Pool</div>
+          <div class="ml-item"><span class="ml-dot" style="background:#2563EB;border:2px solid #fff;box-shadow:0 0 0 1.5px #2563EB;"></span>Sekolah</div>
+          <div class="ml-item"><span class="ml-dot" style="background:#EF4444;border:2px solid #fff;box-shadow:0 0 0 1.5px #EF4444;"></span>Bus Aktif</div>
+          <div class="ml-item"><span class="ml-line" style="background:#2563EB;"></span>Rute MNN</div>
+          <div class="ml-item"><span class="ml-line" style="background:#7C3AED;"></span>Jalur Kembali</div>
+        </div>
+      </div>
+
+    </div><!-- /left col -->
+
+    <!-- KOLOM KANAN -->
+    <div class="right-col">
+
+      <!-- Info Bus -->
+      <div class="info-card">
+        <div class="ic-hdr"><i class="bi bi-bus-front-fill text-primary"></i>Informasi Bus</div>
+        <div class="irow"><span class="ilbl">Bus</span><span class="ival b" id="iBusNama">Bus 01</span></div>
+        <div class="irow"><span class="ilbl">Driver</span><span class="ival" id="iDriverNama">Budi Santoso</span></div>
+        <div class="irow"><span class="ilbl">Status</span><span class="ival" id="iStatus"><span class="sdot g"></span>Beroperasi</span></div>
+        <div class="irow"><span class="ilbl">Lokasi Sekarang</span><span class="ival" id="iLokasi">—</span></div>
+        <div class="irow"><span class="ilbl">Tujuan Berikutnya</span><span class="ival b" id="iTujuan">—</span></div>
+        <div class="irow"><span class="ilbl">Sisa Jarak</span><span class="ival p" id="iSisa">—</span></div>
+        <div class="irow"><span class="ilbl">Estimasi Tiba</span><span class="ival a" id="iETA">—</span></div>
+      </div>
+
+      <!-- Relasi Admin ↔ Driver -->
+      <div class="info-card">
+        <div class="ic-hdr"><i class="bi bi-arrow-left-right text-primary"></i>Relasi Admin ↔ Driver</div>
+        <div class="rel-grid">
+          <div class="rel-item">
+            <div class="rel-lbl">Admin Pemantau</div>
+            <div class="rel-val">Admin</div>
+            <div class="rel-sub">Super Admin</div>
+          </div>
+          <div class="rel-item">
+            <div class="rel-lbl">Driver Dipantau</div>
+            <div class="rel-val" id="rDriverVal">Budi Santoso</div>
+            <div class="rel-sub" id="rDriverSub">Bus 01 · Shift Pagi</div>
+          </div>
+          <div class="rel-item">
+            <div class="rel-lbl">Koneksi</div>
+            <div class="rel-val" style="color:#16A34A;"><span class="sdot g"></span>Terhubung</div>
+            <div class="rel-sub">Polling 3 dtk</div>
+          </div>
+          <div class="rel-item">
+            <div class="rel-lbl">Last Update</div>
+            <div class="rel-val" id="rLastUpdate">—</div>
+            <div class="rel-sub">Waktu server</div>
+          </div>
+        </div>
+        <div style="padding:0 14px 14px;">
+          <div style="font-size:10.5px;color:#64748B;background:#F8FAFC;border-radius:8px;padding:8px 10px;line-height:1.6;">
+            <b style="color:#0F172A;">Alur relasi:</b> Driver menulis data GPS ke tabel <code>tracking</code>
+            (via <code>id_penugasan</code>). Admin membaca via JOIN tabel
+            <code>penugasan → sopir → bus</code>. Admin punya hak <b>READ ALL</b>,
+            driver hanya <b>WRITE posisi sendiri</b>.
+          </div>
+        </div>
+      </div>
+
+      <!-- Hasil MNN -->
+      <div class="info-card">
+        <div class="ic-hdr"><i class="bi bi-calculator-fill text-primary"></i>Hasil Algoritma MNN</div>
+        <div class="irow"><span class="ilbl">Metode</span><span class="ival" style="font-size:11px;">NN Greedy + 2-opt</span></div>
+        <div class="irow"><span class="ilbl">Jumlah Node</span><span class="ival">8 Titik</span></div>
+        <div class="irow"><span class="ilbl">Jarak Awal (NN)</span><span class="ival" id="iInitDist">—</span></div>
+        <div class="irow"><span class="ilbl">Jarak Optimal (MNN)</span><span class="ival g" id="iOptDist">—</span></div>
+        <div class="irow"><span class="ilbl">Efisiensi 2-opt</span><span class="ival g" id="iImprove">—</span></div>
+        <div class="irow"><span class="ilbl">Urutan Rute</span><span class="ival" id="iRoute" style="font-size:10.5px;">—</span></div>
+      </div>
+
+      <!-- Langkah MNN -->
+      <div class="info-card">
+        <div class="ic-hdr"><i class="bi bi-list-ol text-primary"></i>Langkah-Langkah MNN</div>
+        <div class="steps-sc" id="stepsWrap"></div>
+      </div>
+
+    </div><!-- /right col -->
+  </div><!-- /main-grid -->
+</div><!-- /body-wrap -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="mnn-algorithm.js"></script>
+<script src="admin-tracking.js"></script>
+</body>
+</html>
